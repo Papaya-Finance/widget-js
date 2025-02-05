@@ -5,7 +5,7 @@ import {
   getSubscriptionModalData,
   getTokenABI,
 } from "../helpers/subscriptionHelpers";
-import { calculateSubscriptionRate } from "../utils";
+import { calculateSubscriptionRate, getAssets } from "../utils";
 import { Papaya } from "../contracts/evm/Papaya";
 // Import button components
 import { createApproveButton } from "./Buttons/Approve";
@@ -21,87 +21,68 @@ class SubscriptionModal extends HTMLElement {
     super();
     this.attachShadow({ mode: "open" });
 
-    // Internal properties set via setters:
+    // Internal properties
     this._open = false;
     this._subscriptionDetails = null;
     this._account = null;
     this._network = null;
     this._onClose = () => {};
 
-    // Internal state variables:
+    // State variables
     this._showError = false;
     this._errorTitle = "";
     this._errorDescription = "";
     this._isSubscriptionSuccessful = false;
 
-    // Network fee state:
+    // Fee state and caching
     this._networkFee = null;
     this._isFeeLoading = false;
-
-    // Function call details
+    this._modalData = null;
     this._functionDetails = null;
+    this._feeRequestId = 0;
   }
 
   static get observedAttributes() {
     return ["open"];
   }
 
-  // Attribute Changed
   attributeChangedCallback(name, oldVal, newVal) {
     if (name === "open") {
       this._open = newVal !== null && newVal !== "false";
       if (!this._open) {
         this._isSubscriptionSuccessful = false;
         this._showError = false;
-        console.log("attributeChangedCallback, !this._open");
+        this._modalData = null;
         this.render();
       } else {
-        console.log("attributeChangedCallback, this._open");
-        this.fetchNetworkFee().then(() => {
-          this.render();
-          console.log("fetchNetworkFee, !this._open");
-        });
+        this.render();
+        if (this._subscriptionDetails && this._account && this._network) {
+          this.fetchNetworkFee();
+        }
       }
     }
   }
 
-  // Subscription Details
   set subscriptionDetails(details) {
     this._subscriptionDetails = details;
-    console.log("subscriptionDetails");
-    this.render();
+    if (this._open) this.render();
   }
   get subscriptionDetails() {
     return this._subscriptionDetails;
   }
 
-  // Account
   set account(newAccount) {
-    if (
-      this._open &&
-      (!this._account || this._account.address !== newAccount.address)
-    ) {
-      this._account = newAccount;
-      console.log("account is set before re-render");
-      this.render();
-    }
+    this._account = newAccount;
+    if (this._open) this.render();
   }
   get account() {
     return this._account;
   }
 
-  // Network
-  set network(net) {
-    if (!this._network || this._network.chainId !== net.chainId) {
-      this._network = net;
-      if (this._open) {
-        this.fetchNetworkFee();
-      }
-      console.log("network if");
-      this.render();
-    } else {
-      this._network = net;
-      console.log("network else");
+  set network(newNetwork) {
+    this._network = newNetwork;
+    if (this._open) {
+      this.fetchNetworkFee();
       this.render();
     }
   }
@@ -109,7 +90,6 @@ class SubscriptionModal extends HTMLElement {
     return this._network;
   }
 
-  // Close
   set onClose(fn) {
     this._onClose = fn;
   }
@@ -117,12 +97,11 @@ class SubscriptionModal extends HTMLElement {
     return this._onClose;
   }
 
-  // Connected Callback
   connectedCallback() {
-    console.log("connectedCallback");
     this.render();
   }
 
+  // Fetch fee data (only once per change) and cache it.
   async fetchNetworkFee() {
     if (
       !this._open ||
@@ -132,55 +111,57 @@ class SubscriptionModal extends HTMLElement {
     )
       return;
 
-    const modalData = await getSubscriptionModalData(
-      this._network,
-      this._account,
-      this._subscriptionDetails
-    );
-
-    console.log("modal data", modalData);
-
-    const { needsDeposit, needsApproval, depositAmount, tokenDetails } =
-      modalData;
-    const functionName = needsApproval
-      ? "approve"
-      : needsDeposit
-      ? "deposit"
-      : "subscribe";
-    const abi =
-      functionName === "approve" ? getTokenABI(tokenDetails.name) : Papaya;
-    const addr =
-      functionName === "approve"
-        ? tokenDetails.ercAddress
-        : tokenDetails.papayaAddress;
-    const args = needsApproval
-      ? [
-          tokenDetails.papayaAddress,
-          parseUnits(this._subscriptionDetails.cost, 6),
-        ]
-      : needsDeposit
-      ? [depositAmount, false]
-      : [
-          this._subscriptionDetails.toAddress,
-          calculateSubscriptionRate(
-            parseUnits(this._subscriptionDetails.cost, 18),
-            this._subscriptionDetails.payCycle
-          ),
-          0,
-        ];
-    this._functionDetails = {
-      abi,
-      address: addr,
-      functionName,
-      args,
-      account: this._account.address,
-    };
-
+    this._feeRequestId++;
+    const currentRequestId = this._feeRequestId;
     this._isFeeLoading = true;
-    console.log("this._isFeeLoading = true;");
     this.render();
 
     try {
+      const modalData = await getSubscriptionModalData(
+        this._network,
+        this._account,
+        this._subscriptionDetails
+      );
+
+      if (currentRequestId !== this._feeRequestId) return;
+      this._modalData = modalData;
+
+      const { needsDeposit, needsApproval, depositAmount, tokenDetails } =
+        modalData;
+      const functionName = needsApproval
+        ? "approve"
+        : needsDeposit
+        ? "deposit"
+        : "subscribe";
+      const abiValue =
+        functionName === "approve" ? getTokenABI(tokenDetails.name) : Papaya;
+      const addr =
+        functionName === "approve"
+          ? tokenDetails.ercAddress
+          : tokenDetails.papayaAddress;
+      const args = needsApproval
+        ? [
+            tokenDetails.papayaAddress,
+            parseUnits(this._subscriptionDetails.cost, 6),
+          ]
+        : needsDeposit
+        ? [depositAmount, false]
+        : [
+            this._subscriptionDetails.toAddress,
+            calculateSubscriptionRate(
+              parseUnits(this._subscriptionDetails.cost, 18),
+              this._subscriptionDetails.payCycle
+            ),
+            0,
+          ];
+      this._functionDetails = {
+        abi: abiValue,
+        address: addr,
+        functionName,
+        args,
+        account: this._account.address,
+      };
+
       const feeData = await getNetworkFee(
         true,
         this._account,
@@ -189,24 +170,30 @@ class SubscriptionModal extends HTMLElement {
       );
       this._networkFee = feeData;
     } catch (error) {
+      console.error("Error fetching fee data:", error);
       this._networkFee = { fee: "0.000000000000 ETH", usdValue: "($0.00)" };
     } finally {
-      this._isFeeLoading = false;
-      console.log("this._isFeeLoading = false;");
-      this.render();
+      if (currentRequestId === this._feeRequestId) {
+        this._isFeeLoading = false;
+        this.render();
+      }
     }
   }
 
+  // Update error state based on modal data.
   updateErrorState(modalData) {
-    if (modalData.isUnsupportedNetwork || modalData.isUnsupportedToken) {
+    if (
+      modalData &&
+      (modalData.isUnsupportedNetwork || modalData.isUnsupportedToken)
+    ) {
       this._showError = true;
       if (modalData.isUnsupportedNetwork && !modalData.isUnsupportedToken) {
         this._errorTitle = "Unsupported network";
         this._errorDescription =
           "The selected network is not supported. Please switch to a supported network.";
       } else if (
-        !modalData.isUnsupportedNetwork &&
-        modalData.isUnsupportedToken
+        modalData.isUnsupportedToken &&
+        !modalData.isUnsupportedNetwork
       ) {
         this._errorTitle = "Unsupported token";
         this._errorDescription =
@@ -229,73 +216,28 @@ class SubscriptionModal extends HTMLElement {
       return;
     }
 
-    console.log("this._subscriptionDetails", this._subscriptionDetails);
-    console.log("this._account", this._account);
-    console.log("this._network", this._network);
-
-    if (!this._subscriptionDetails || !this._account || !this._network) {
-      this.shadowRoot.innerHTML = `<p style="color:red;">Missing subscriptionDetails, account, or network data.</p>`;
+    if (!this._subscriptionDetails) {
+      this.shadowRoot.innerHTML = `<p style="color:red;">Missing subscription details.</p>`;
       return;
     }
 
-    console.log("rendering content now");
+    const modalData = this._modalData || {};
 
-    const modalData = await getSubscriptionModalData(
-      this._network,
-      this._account,
-      this._subscriptionDetails
-    );
     const {
-      chainIcon,
-      tokenIcon,
-      needsDeposit,
-      depositAmount,
-      needsApproval,
-      hasSufficientBalance,
-      canSubscribe,
-      isUnsupportedNetwork,
-      isUnsupportedToken,
-      tokenDetails,
+      chainIcon = getAssets("ethereum", "chain"),
+      tokenIcon = getAssets("usdt", "token"),
+      needsDeposit = false,
+      depositAmount = BigInt(0),
+      needsApproval = false,
+      hasSufficientBalance = false,
+      canSubscribe = false,
+      tokenDetails = {},
     } = modalData;
 
     this.updateErrorState(modalData);
 
-    const functionName = needsApproval
-      ? "approve"
-      : needsDeposit
-      ? "deposit"
-      : "subscribe";
-    const abi =
-      functionName === "approve" ? getTokenABI(tokenDetails.name) : Papaya;
-    const addr =
-      functionName === "approve"
-        ? tokenDetails.ercAddress
-        : tokenDetails.papayaAddress;
-    const args = needsApproval
-      ? [
-          tokenDetails.papayaAddress,
-          parseUnits(this._subscriptionDetails.cost, 6),
-        ]
-      : needsDeposit
-      ? [depositAmount, false]
-      : [
-          this._subscriptionDetails.toAddress,
-          calculateSubscriptionRate(
-            parseUnits(this._subscriptionDetails.cost, 18),
-            this._subscriptionDetails.payCycle
-          ),
-          0,
-        ];
-    this._functionDetails = {
-      abi,
-      address: addr,
-      functionName,
-      args,
-      account: this._account.address,
-    };
-
-    const skeleton80 = `<div class="skeleton" style="width:80px;height:1em;background:#e0e5e8;"></div>`;
-    const skeleton60 = `<div class="skeleton" style="width:60px;height:1em;background:#e0e5e8;"></div>`;
+    const skeleton100 = `<div class="skeleton" style="width:100px;height:1em;"></div>`;
+    const skeleton60 = `<div class="skeleton" style="width:60px;height:1em;"></div>`;
 
     const template = `
       <style>
@@ -662,17 +604,29 @@ class SubscriptionModal extends HTMLElement {
         }
 
         .underline {
-         text-decoration: none;
+            text-decoration: none;
         }
 
         span[aria-live="polite"]:has(> span.button-loader) {
-         width: 100%;
+            width: 100%;
         }
 
         .button-loader {
             width: 100%;
             height: 40px;
             border-radius: 16px;
+        }
+
+        .skeleton {
+            background-color: #e0e5e8;
+            animation: skeleton-loading 1.2s ease-in-out infinite;
+            border-radius: 8px;
+        }
+
+        @keyframes skeleton-loading {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
         }
       </style>
       <div class="modal-overlay">
@@ -699,13 +653,21 @@ class SubscriptionModal extends HTMLElement {
                 <div class="summary-detail">
                   <p class="detail-label">Subscription Cost:</p>
                   <div class="detail-icons">
-                    <img src="${chainIcon}" alt="Chain Icon" class="chain-icon" />
-                    <img src="${tokenIcon}" alt="Token Icon" class="token-icon" />
+                  ${
+                    this._isFeeLoading
+                      ? `<div class="skeleton" style="width:14px;height:14px;border-radius:4px"></div>`
+                      : `<img src="${chainIcon}" alt="Chain Icon" class="chain-icon" />`
+                  }
+                  ${
+                    this._isFeeLoading
+                      ? `<div class="skeleton" style="width:24px;height:24px;border-radius:6px"></div>`
+                      : `<img src="${tokenIcon}" alt="Token Icon" class="token-icon" />`
+                  }
                   </div>
                   <p class="detail-value">
                     ${
                       this._isFeeLoading
-                        ? skeleton80
+                        ? skeleton60
                         : this._subscriptionDetails.cost
                     }
                   </p>
@@ -725,7 +687,7 @@ class SubscriptionModal extends HTMLElement {
                   <p class="detail-value">
                     ${
                       this._isFeeLoading
-                        ? skeleton80
+                        ? skeleton100
                         : this._networkFee
                         ? this._networkFee.fee
                         : "0 ETH"
@@ -770,8 +732,8 @@ class SubscriptionModal extends HTMLElement {
                   Now you can manage your subscription from a convenient
                   <b><u>
                     <a target="_blank" href="${
-                      this._account && this._account.address
-                        ? `https://app.papaya.finance/wallet/${this._account.address}`
+                      account && account.address
+                        ? `https://app.papaya.finance/wallet/${account.address}`
                         : "https://app.papaya.finance/"
                     }">
                       dashboard!
@@ -794,7 +756,6 @@ class SubscriptionModal extends HTMLElement {
       </div>
     `;
 
-    // Set the shadow DOM content
     this.shadowRoot.innerHTML = template;
 
     const closeBtn = this.shadowRoot.getElementById("closeBtn");
@@ -808,92 +769,95 @@ class SubscriptionModal extends HTMLElement {
       });
     }
 
-    // Render dynamic buttons into the "buttonsSection"
     const buttonsSection = this.shadowRoot.getElementById("buttonsSection");
     if (buttonsSection) {
-      buttonsSection.innerHTML = "";
+      if (this._isFeeLoading) {
+        // Show skeleton loading
+        buttonsSection.innerHTML = `
+          <div class="skeleton" style="width:100%;height:40px;border-radius:16px"></div>
+          <div class="skeleton" style="width:100%;height:40px;border-radius:16px"></div>
+        `;
+      } else if (this._account && this._network && this._modalData) {
+        buttonsSection.innerHTML = "";
 
-      // Create Approve button
-      const approveBtn = createApproveButton({
-        chainId: this._network.chainId,
-        needsApproval: needsApproval,
-        approvalAmount: parseUnits(this._subscriptionDetails.cost, 6),
-        abi: getTokenABI(tokenDetails.name),
-        tokenContractAddress: tokenDetails.ercAddress,
-        papayaAddress: tokenDetails.papayaAddress,
-        onSuccess: () => {
-          this._showError = false;
-          this._errorTitle = "";
-          this._errorDescription = "";
-          console.log("approveBtn, onsuccess");
-          this.render();
-        },
-        onError: (title, description) => {
-          this._showError = true;
-          this._errorTitle = title;
-          this._errorDescription = description;
-          console.log("approveBtn, onerror");
-          this.render();
-        },
-      });
-      buttonsSection.appendChild(approveBtn);
+        // Create Approve button.
+        const approveBtn = createApproveButton({
+          chainId: this._network.chainId,
+          account: this._account,
+          needsApproval: this._modalData.needsApproval,
+          approvalAmount: parseUnits(this._subscriptionDetails.cost, 6),
+          abi: getTokenABI(tokenDetails.name),
+          tokenContractAddress: tokenDetails.ercAddress,
+          papayaAddress: tokenDetails.papayaAddress,
+          onSuccess: () => {
+            this._showError = false;
+            this._errorTitle = "";
+            this._errorDescription = "";
+            this.render();
+          },
+          onError: (title, description) => {
+            this._showError = true;
+            this._errorTitle = title;
+            this._errorDescription = description;
+            this.render();
+          },
+        });
+        buttonsSection.appendChild(approveBtn);
 
-      // Create Deposit button
-      const depositBtn = createDepositButton({
-        chainId: this._network.chainId,
-        needsApproval: needsApproval,
-        needsDeposit: needsDeposit,
-        depositAmount: depositAmount,
-        abi: Papaya,
-        papayaAddress: tokenDetails.papayaAddress,
-        hasSufficientBalance: hasSufficientBalance,
-        onSuccess: () => {
-          this._showError = false;
-          this._errorTitle = "";
-          this._errorDescription = "";
-          console.log("depositBtn, onSuccess");
-          this.render();
-        },
-        onError: (title, description) => {
-          this._showError = true;
-          this._errorTitle = title;
-          this._errorDescription = description;
-          console.log("depositBtn, onError");
-          this.render();
-        },
-      });
-      buttonsSection.appendChild(depositBtn);
+        // Create Deposit button.
+        const depositBtn = createDepositButton({
+          chainId: this._network.chainId,
+          needsApproval: this._modalData.needsApproval,
+          needsDeposit: this._modalData.needsDeposit,
+          depositAmount: this._modalData.depositAmount,
+          abi: Papaya,
+          papayaAddress: tokenDetails.papayaAddress,
+          hasSufficientBalance: this._modalData.hasSufficientBalance,
+          onSuccess: () => {
+            this._showError = false;
+            this._errorTitle = "";
+            this._errorDescription = "";
+            this.render();
+          },
+          onError: (title, description) => {
+            this._showError = true;
+            this._errorTitle = title;
+            this._errorDescription = description;
+            this.render();
+          },
+        });
+        buttonsSection.appendChild(depositBtn);
 
-      // Create Subscribe button
-      const subscribeBtn = createSubscribeButton({
-        chainId: this._network.chainId,
-        needsDeposit: needsDeposit,
-        canSubscribe: canSubscribe,
-        abi: Papaya,
-        toAddress: this._subscriptionDetails.toAddress,
-        subscriptionCost: parseUnits(this._subscriptionDetails.cost, 18),
-        subscriptionCycle: this._subscriptionDetails.payCycle,
-        papayaAddress: tokenDetails.papayaAddress,
-        onSuccess: () => {
-          this._isSubscriptionSuccessful = true;
-          this._showError = false;
-          this._errorTitle = "";
-          this._errorDescription = "";
-          console.log("subscribeBtn, onSuccess");
-          this.render();
-        },
-        onError: (title, description) => {
-          this._showError = true;
-          this._errorTitle = title;
-          this._errorDescription = description;
-          console.log("subscribeBtn, onError");
-          this.render();
-        },
-      });
-      buttonsSection.appendChild(subscribeBtn);
+        // Create Subscribe button.
+        const subscribeBtn = createSubscribeButton({
+          chainId: this._network.chainId,
+          needsDeposit: this._modalData.needsDeposit,
+          canSubscribe: this._modalData.canSubscribe,
+          abi: Papaya,
+          toAddress: this._subscriptionDetails.toAddress,
+          subscriptionCost: parseUnits(this._subscriptionDetails.cost, 18),
+          subscriptionCycle: this._subscriptionDetails.payCycle,
+          papayaAddress: tokenDetails.papayaAddress,
+          onSuccess: () => {
+            this._isSubscriptionSuccessful = true;
+            this._showError = false;
+            this._errorTitle = "";
+            this._errorDescription = "";
+            this.render();
+          },
+          onError: (title, description) => {
+            this._showError = true;
+            this._errorTitle = title;
+            this._errorDescription = description;
+            this.render();
+          },
+        });
+        buttonsSection.appendChild(subscribeBtn);
+      }
     }
   }
 }
 
 customElements.define("subscription-modal", SubscriptionModal);
+
 export { SubscriptionModal };

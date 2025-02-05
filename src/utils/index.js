@@ -75,9 +75,9 @@ export const formatNetworkFee = (fee, nativeToken) => {
 export const getAssets = (key, type) => {
   const lowerKey = key.toLowerCase();
   if (type === "chain") {
-    return chainIcons[lowerKey] || "";
+    return chainIcons[lowerKey] || "ethereum";
   } else if (type === "token") {
-    return tokenIcons[lowerKey] || "";
+    return tokenIcons[lowerKey] || "usdt";
   }
   console.error(`Invalid asset type: ${type}`);
   return "";

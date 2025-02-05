@@ -103,25 +103,16 @@ function createSubscribeButton({
   async function handleClick(e) {
     e.preventDefault();
 
-    console.log("1");
-
     if (!canSubscribe) return;
-
-    console.log("2");
 
     isProcessing = true;
     updateUI();
 
-    console.log("3");
-
     try {
-      console.log("4");
       const subscriptionRate = calculateSubscriptionRate(
         subscriptionCost,
         subscriptionCycle
       );
-
-      console.log("5");
 
       const { request } = await simulateContract(wagmiConfig, {
         abi,
@@ -131,11 +122,7 @@ function createSubscribeButton({
         chainId,
       });
 
-      console.log("6", request);
-
       const txHash = await writeContract(wagmiConfig, request);
-
-      console.log("7", txHash);
 
       await waitForTransactionReceipt(wagmiConfig, {
         hash: txHash,

@@ -17,7 +17,7 @@ export const initializeSubscribers = (appKit) => {
   appKit.subscribeAccount((state) => {
     updateStore("accountState", state);
     const modal = document.getElementById("subModal");
-    if (modal && modal.getAttribute("open") === "true") {
+    if (modal) {
       modal.account = state;
     }
   });
@@ -26,8 +26,7 @@ export const initializeSubscribers = (appKit) => {
   appKit.subscribeNetwork((state) => {
     updateStore("networkState", state);
     const modal = document.getElementById("subModal");
-    if (modal && modal.getAttribute("open") === "true") {
-      console.log("network changed", state);
+    if (modal) {
       modal.network = state;
     }
   });

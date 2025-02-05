@@ -198,26 +198,6 @@ export async function getSubscriptionModalData(
   account,
   subscriptionDetails
 ) {
-  const nativeTokenIdMap = {
-    137: "polygon",
-    56: "bnb",
-    43114: "avalanche",
-    8453: "base",
-    42161: "arbitrum",
-    1: "ethereum",
-  };
-
-  const chainName = nativeTokenIdMap[network.chainId] || "ethereum";
-
-  const chainIcon = getAssets(chainName, "chain");
-  const tokenIcon = getAssets(subscriptionDetails.token, "token");
-
-  const subscriptionInfo = await getSubscriptionInfo(
-    network,
-    account,
-    subscriptionDetails
-  );
-
   const fallbackValues = {
     papayaBalance: null,
     allowance: null,
@@ -229,13 +209,48 @@ export async function getSubscriptionModalData(
     canSubscribe: false,
   };
 
+  if (!network || !account) {
+    return {
+      chainIcon: getAssets("ethereum", "chain"),
+      tokenIcon: getAssets("usdt", "token"),
+      ...fallbackValues,
+      tokenDetails: null,
+      isUnsupportedNetwork: false,
+      isUnsupportedToken: false,
+    };
+  }
+
+  const nativeTokenIdMap = {
+    137: "polygon",
+    56: "bnb",
+    43114: "avalanche",
+    8453: "base",
+    42161: "arbitrum",
+    1: "ethereum",
+  };
+
+  const chainName =
+    network && nativeTokenIdMap[network.chainId]
+      ? nativeTokenIdMap[network.chainId]
+      : "ethereum";
+
+  const chainIcon =
+    getAssets(chainName, "chain") || getAssets("ethereum", "chain");
+  const tokenIcon =
+    getAssets(subscriptionDetails.token, "token") || getAssets("usdt", "token");
+
+  const subscriptionInfo = await getSubscriptionInfo(
+    network,
+    account,
+    subscriptionDetails
+  );
   const { tokenDetails, isUnsupportedNetwork, isUnsupportedToken } =
     getTokenDetails(network, subscriptionDetails);
 
   if (isUnsupportedNetwork || isUnsupportedToken) {
     return {
-      chainIcon: chainIcon || "",
-      tokenIcon: tokenIcon || "",
+      chainIcon: chainIcon || getAssets("ethereum", "chain"),
+      tokenIcon: tokenIcon || getAssets("usdt", "token"),
       ...fallbackValues,
       isUnsupportedNetwork,
       isUnsupportedToken,
