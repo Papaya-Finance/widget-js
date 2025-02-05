@@ -42,6 +42,7 @@ function createApproveButton({
 
   function renderButtonContent() {
     button.innerHTML = "";
+
     if (isProcessing || isPending) {
       const spinnerContainer = document.createElement("div");
       spinnerContainer.className = "spinner-container";
@@ -61,24 +62,19 @@ function createApproveButton({
       text.className = "button-text";
       text.textContent = "Approve";
       button.appendChild(text);
+    }
 
-      if (isConfirmed || !needsApproval) {
-        const img = document.createElement("img");
-        img.src = GreenTickIcon;
-        img.alt = "Approve Successful";
-        img.className = "image-green-tick";
-        button.appendChild(img);
-      }
+    if (isConfirmed || !needsApproval) {
+      const img = document.createElement("img");
+      img.src = GreenTickIcon;
+      img.alt = "Approve Successful";
+      img.className = "image-green-tick";
+      button.appendChild(img);
     }
   }
 
-  renderButtonContent();
-
   function updateUI() {
-    if (isConfirmed) {
-      button.disabled = true;
-      button.classList.add("disabled");
-    } else if (!needsApproval || isProcessing || isPending) {
+    if (isConfirmed || !needsApproval || isProcessing || isPending) {
       button.disabled = true;
       button.classList.add("disabled");
     } else {
@@ -88,6 +84,8 @@ function createApproveButton({
 
     renderButtonContent();
   }
+
+  updateUI();
 
   async function handleClick(e) {
     e.preventDefault();

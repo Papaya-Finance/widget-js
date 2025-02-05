@@ -1,4 +1,3 @@
-// src/utils/index.js
 // === Imports ===
 import { networks } from "../constants/networks";
 import axios from "axios";

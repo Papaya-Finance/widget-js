@@ -1,37 +1,47 @@
-// In src/utils/suscribers.js
+// src/utils/subscribers.js
+
 import { store, updateStore } from "../store/appkitStore";
 
+/**
+ * Initializes subscribers on your AppKit instance.
+ * When the account, network, or overall state changes, these subscribers update the store
+ * and update the modal element (if it exists and is open).
+ *
+ * @param {Object} appKit - Your initialized AppKit instance.
+ */
 export const initializeSubscribers = (appKit) => {
   let lastAccount = null;
-  appKit.subscribeAccount((state) => {
-    if (!lastAccount || lastAccount.address !== state.address) {
-      lastAccount = state;
-      updateStore("accountState", state);
-      const modal = document.getElementById("subModal");
-      if (modal) {
-        console.log("account changed", modal.account);
-        modal.account = state;
-      }
-    }
-  });
-
   let lastNetwork = null;
-  appKit.subscribeNetwork((state) => {
-    if (!lastNetwork || lastNetwork.chainId !== state.chainId) {
-      lastNetwork = state;
-      updateStore("networkState", state);
-      const modal = document.getElementById("subModal");
-      if (modal) {
-        console.log("network changed", modal.network);
-        modal.network = state;
-      }
+
+  // Subscribe to account changes.
+  appKit.subscribeAccount((state) => {
+    updateStore("accountState", state);
+    const modal = document.getElementById("subModal");
+    if (modal && modal.getAttribute("open") === "true") {
+      modal.account = state;
     }
   });
 
+  // Subscribe to network changes.
+  appKit.subscribeNetwork((state) => {
+    updateStore("networkState", state);
+    const modal = document.getElementById("subModal");
+    if (modal && modal.getAttribute("open") === "true") {
+      console.log("network changed", state);
+      modal.network = state;
+    }
+  });
+
+  // Subscribe to overall AppKit state changes.
   appKit.subscribeState((state) => {
     updateStore("appKitState", state);
     const modal = document.getElementById("subModal");
-    if (modal && typeof modal.render === "function") {
+    // Only update/render the modal if it is open.
+    if (
+      modal &&
+      modal.getAttribute("open") === "true" &&
+      typeof modal.render === "function"
+    ) {
       modal.render();
     }
   });

@@ -5,8 +5,8 @@ import { Papaya } from "../contracts/evm/Papaya";
 import { USDT } from "../contracts/evm/USDT";
 import { USDC } from "../contracts/evm/USDC";
 import { PYUSD } from "../contracts/evm/PYUSD";
-import { getAssets } from "../utils/index.js"; // For asset management
-import { fetchGasCost, getChain } from "../utils/index.js"; // From your utils
+import { getAssets } from "../utils/index.js";
+import { fetchGasCost, getChain } from "../utils/index.js";
 import { readContract } from "@wagmi/core";
 import { wagmiConfig } from "../config/appKit.js";
 
@@ -165,16 +165,20 @@ export async function getSubscriptionInfo(
     )) || BigInt(0);
 
   const costBigInt = parseUnits(subscriptionDetails.cost, 18);
+
   const needsDeposit = papayaBalance < costBigInt;
+
   const depositAmount =
     papayaBalance > BigInt(0)
       ? parseUnits(subscriptionDetails.cost, 6) -
-        papayaBalance / parseUnits("1", 12) +
-        parseUnits("0.01", 6)
+        papayaBalance / parseUnits("1", 12)
       : parseUnits(subscriptionDetails.cost, 6);
-  const needsApproval = allowance < depositAmount;
+
+  const needsApproval = allowance == null || allowance < depositAmount;
+
   const hasSufficientBalance =
-    tokenBalance >= parseUnits(subscriptionDetails.cost, 6);
+    tokenBalance != null && tokenBalance >= depositAmount;
+
   const canSubscribe = !needsDeposit && papayaBalance >= costBigInt;
 
   return {

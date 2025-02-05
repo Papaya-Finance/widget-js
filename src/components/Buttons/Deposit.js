@@ -1,6 +1,9 @@
-// src/components/Buttons/Deposit.js
-
-import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
+import {
+  writeContract,
+  waitForTransactionReceipt,
+  simulateContract,
+} from "@wagmi/core";
+import { wagmiConfig } from "../../config/appKit";
 import { getReadableErrorMessage } from "../../utils";
 
 /**
@@ -20,6 +23,7 @@ import { getReadableErrorMessage } from "../../utils";
  */
 function createDepositButton({
   chainId,
+  needsApproval,
   needsDeposit,
   depositAmount,
   abi,
@@ -33,21 +37,13 @@ function createDepositButton({
   let isPending = false;
   let isConfirmed = false;
 
-  // Create the form element
-  const form = document.createElement("form");
-  form.style.width = "100%";
-
-  // Create the button element
   const button = document.createElement("button");
-  button.type = "submit";
   button.className = "deposit-button";
 
-  // Function to render/update the button content
   function renderButtonContent() {
-    button.innerHTML = ""; // clear previous content
+    button.innerHTML = "";
 
     if (isProcessing || isPending) {
-      // Show spinner container
       const spinnerContainer = document.createElement("div");
       spinnerContainer.className = "spinner-container";
 
@@ -62,43 +58,45 @@ function createDepositButton({
       spinnerContainer.appendChild(text);
       button.appendChild(spinnerContainer);
     } else {
-      // Show standard button text
       const text = document.createElement("p");
       text.className = "button-text";
-      // If user has sufficient balance, show "Deposit"; otherwise show "Insufficient Balance"
       text.textContent = hasSufficientBalance
         ? "Deposit"
         : "Insufficient Balance";
       button.appendChild(text);
     }
+
+    if (isConfirmed || !needsDeposit) {
+      button.classList.add("hidden");
+    } else {
+      button.classList.remove("hidden");
+    }
   }
 
-  // Function to update UI state (disabled state and re-render content)
   function updateUI() {
-    if (!needsDeposit || !hasSufficientBalance || isProcessing || isPending) {
+    if (needsApproval || !needsDeposit || !hasSufficientBalance || isProcessing || isPending) {
       button.disabled = true;
       button.classList.add("disabled");
     } else {
       button.disabled = false;
       button.classList.remove("disabled");
     }
+
     renderButtonContent();
   }
 
-  // Initial render of button content
   updateUI();
 
-  // Submit handler for the deposit form
-  async function submit(e) {
+  async function handleClick(e) {
     e.preventDefault();
+
     if (!needsDeposit || !hasSufficientBalance) return;
 
     isProcessing = true;
     updateUI();
 
     try {
-      // Call writeContract for the "deposit" function.
-      const tx = await writeContract({
+      const { request } = await simulateContract(wagmiConfig, {
         abi,
         address: papayaAddress,
         functionName: "deposit",
@@ -106,9 +104,15 @@ function createDepositButton({
         chainId,
       });
 
-      // Wait for transaction confirmation
-      await waitForTransactionReceipt({ hash: tx.hash });
+      const txHash = await writeContract(wagmiConfig, request);
+
+      await waitForTransactionReceipt(wagmiConfig, {
+        hash: txHash,
+        chainId,
+      });
+
       isConfirmed = true;
+      needsDeposit = false;
       onSuccess();
     } catch (error) {
       if (
@@ -127,13 +131,8 @@ function createDepositButton({
     }
   }
 
-  // Attach the submit event handler to the form
-  form.addEventListener("submit", submit);
-
-  // Append the button to the form
-  form.appendChild(button);
-
-  return form;
+  button.addEventListener("click", handleClick);
+  return button;
 }
 
 export { createDepositButton };

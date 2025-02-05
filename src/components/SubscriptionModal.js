@@ -42,74 +42,74 @@ class SubscriptionModal extends HTMLElement {
     this._functionDetails = null;
   }
 
-  // Observe the "open" attribute
   static get observedAttributes() {
     return ["open"];
   }
 
+  // Attribute Changed
   attributeChangedCallback(name, oldVal, newVal) {
     if (name === "open") {
       this._open = newVal !== null && newVal !== "false";
       if (!this._open) {
-        // Reset subscription success and error state when closed.
         this._isSubscriptionSuccessful = false;
         this._showError = false;
+        console.log("attributeChangedCallback, !this._open");
+        this.render();
       } else {
-        // When opening, trigger fee fetch.
-        this.fetchNetworkFee();
+        console.log("attributeChangedCallback, this._open");
+        this.fetchNetworkFee().then(() => {
+          this.render();
+          console.log("fetchNetworkFee, !this._open");
+        });
       }
-      this.render();
     }
   }
 
-  set network(net) {
-    // If the network is changing (compare chainId), trigger refetch
-    if (!this._network || this._network.chainId !== net.chainId) {
-      this._network = net;
-      // When network changes and if modal is open, refetch fee data
-      if (this._open) {
-        this.fetchNetworkFee();
-      }
-      this.render();
-    } else {
-      // Otherwise just update and re-render
-      this._network = net;
-      this.render();
-    }
-  }
-
-  // Setters for external properties
+  // Subscription Details
   set subscriptionDetails(details) {
     this._subscriptionDetails = details;
+    console.log("subscriptionDetails");
     this.render();
   }
   get subscriptionDetails() {
     return this._subscriptionDetails;
   }
 
+  // Account
   set account(newAccount) {
-    // If we already have an account and the new account's address is the same, do nothing.
-    if (this._account && this._account.address === newAccount.address) return;
-    this._account = newAccount;
-    this.render();
+    if (
+      this._open &&
+      (!this._account || this._account.address !== newAccount.address)
+    ) {
+      this._account = newAccount;
+      console.log("account is set before re-render");
+      this.render();
+    }
   }
   get account() {
     return this._account;
   }
 
-  set network(newNetwork) {
-    // If we already have a network and the chainId hasn't changed, do nothing.
-    if (this._network && this._network.chainId === newNetwork.chainId) return;
-    this._network = newNetwork;
-    if (this._open) {
-      this.fetchNetworkFee(); // refetch only when there’s an actual change
+  // Network
+  set network(net) {
+    if (!this._network || this._network.chainId !== net.chainId) {
+      this._network = net;
+      if (this._open) {
+        this.fetchNetworkFee();
+      }
+      console.log("network if");
+      this.render();
+    } else {
+      this._network = net;
+      console.log("network else");
+      this.render();
     }
-    this.render();
   }
   get network() {
     return this._network;
   }
 
+  // Close
   set onClose(fn) {
     this._onClose = fn;
   }
@@ -117,12 +117,13 @@ class SubscriptionModal extends HTMLElement {
     return this._onClose;
   }
 
+  // Connected Callback
   connectedCallback() {
+    console.log("connectedCallback");
     this.render();
   }
 
   async fetchNetworkFee() {
-    // Only fetch if modal is open and required data is present.
     if (
       !this._open ||
       !this._account ||
@@ -130,7 +131,7 @@ class SubscriptionModal extends HTMLElement {
       !this._subscriptionDetails
     )
       return;
-    // Compute function details as in React:
+
     const modalData = await getSubscriptionModalData(
       this._network,
       this._account,
@@ -174,9 +175,9 @@ class SubscriptionModal extends HTMLElement {
       args,
       account: this._account.address,
     };
-    console.log(this._functionDetails);
-    // Set loading state
+
     this._isFeeLoading = true;
+    console.log("this._isFeeLoading = true;");
     this.render();
 
     try {
@@ -188,15 +189,14 @@ class SubscriptionModal extends HTMLElement {
       );
       this._networkFee = feeData;
     } catch (error) {
-      // On error, set fee to zero
       this._networkFee = { fee: "0.000000000000 ETH", usdValue: "($0.00)" };
     } finally {
       this._isFeeLoading = false;
+      console.log("this._isFeeLoading = false;");
       this.render();
     }
   }
 
-  // Method to update error state based on unsupported network/token
   updateErrorState(modalData) {
     if (modalData.isUnsupportedNetwork || modalData.isUnsupportedToken) {
       this._showError = true;
@@ -224,25 +224,27 @@ class SubscriptionModal extends HTMLElement {
   }
 
   async render() {
-    // If not open, clear content and exit.
     if (!this._open) {
       this.shadowRoot.innerHTML = "";
       return;
     }
 
-    // Ensure required properties are provided.
+    console.log("this._subscriptionDetails", this._subscriptionDetails);
+    console.log("this._account", this._account);
+    console.log("this._network", this._network);
+
     if (!this._subscriptionDetails || !this._account || !this._network) {
       this.shadowRoot.innerHTML = `<p style="color:red;">Missing subscriptionDetails, account, or network data.</p>`;
       return;
     }
 
-    // Compute modal data (simulate useSubscriptionModal hook)
+    console.log("rendering content now");
+
     const modalData = await getSubscriptionModalData(
       this._network,
       this._account,
       this._subscriptionDetails
     );
-    // Destructure computed values:
     const {
       chainIcon,
       tokenIcon,
@@ -256,10 +258,8 @@ class SubscriptionModal extends HTMLElement {
       tokenDetails,
     } = modalData;
 
-    // Update error state based on unsupported conditions
     this.updateErrorState(modalData);
 
-    // Compute function details as in React component:
     const functionName = needsApproval
       ? "approve"
       : needsDeposit
@@ -294,11 +294,9 @@ class SubscriptionModal extends HTMLElement {
       account: this._account.address,
     };
 
-    // Render Skeleton placeholder if fee is loading.
     const skeleton80 = `<div class="skeleton" style="width:80px;height:1em;background:#e0e5e8;"></div>`;
     const skeleton60 = `<div class="skeleton" style="width:60px;height:1em;background:#e0e5e8;"></div>`;
 
-    // Build the HTML template (using template literal)
     const template = `
       <style>
         @import url("https://fonts.googleapis.com/css2?family=Public Sans:wght@400;700&display=swap");
@@ -454,7 +452,12 @@ class SubscriptionModal extends HTMLElement {
         }
 
         .buttons-section {
-         width: 100%;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
         }
 
         .deposit-button,
@@ -604,6 +607,10 @@ class SubscriptionModal extends HTMLElement {
             font-size: 12px;
             color: #637381;
             margin: 0;
+        }
+
+        .thank-you-text a {
+            color: #637381 !important;
         }
 
         .error-section {
@@ -767,9 +774,9 @@ class SubscriptionModal extends HTMLElement {
                         ? `https://app.papaya.finance/wallet/${this._account.address}`
                         : "https://app.papaya.finance/"
                     }">
-                      dashboard
+                      dashboard!
                     </a>
-                  </u></b>!
+                  </u></b>
                 </p>
               </div>
             </div>
@@ -794,8 +801,10 @@ class SubscriptionModal extends HTMLElement {
     if (closeBtn) {
       closeBtn.addEventListener("click", (e) => {
         e.stopPropagation();
-        this._onClose();
+        this._open = false;
         this.removeAttribute("open");
+        this._onClose();
+        this.render();
       });
     }
 
@@ -816,12 +825,14 @@ class SubscriptionModal extends HTMLElement {
           this._showError = false;
           this._errorTitle = "";
           this._errorDescription = "";
+          console.log("approveBtn, onsuccess");
           this.render();
         },
         onError: (title, description) => {
           this._showError = true;
           this._errorTitle = title;
           this._errorDescription = description;
+          console.log("approveBtn, onerror");
           this.render();
         },
       });
@@ -830,6 +841,7 @@ class SubscriptionModal extends HTMLElement {
       // Create Deposit button
       const depositBtn = createDepositButton({
         chainId: this._network.chainId,
+        needsApproval: needsApproval,
         needsDeposit: needsDeposit,
         depositAmount: depositAmount,
         abi: Papaya,
@@ -839,12 +851,14 @@ class SubscriptionModal extends HTMLElement {
           this._showError = false;
           this._errorTitle = "";
           this._errorDescription = "";
+          console.log("depositBtn, onSuccess");
           this.render();
         },
         onError: (title, description) => {
           this._showError = true;
           this._errorTitle = title;
           this._errorDescription = description;
+          console.log("depositBtn, onError");
           this.render();
         },
       });
@@ -865,12 +879,14 @@ class SubscriptionModal extends HTMLElement {
           this._showError = false;
           this._errorTitle = "";
           this._errorDescription = "";
+          console.log("subscribeBtn, onSuccess");
           this.render();
         },
         onError: (title, description) => {
           this._showError = true;
           this._errorTitle = title;
           this._errorDescription = description;
+          console.log("subscribeBtn, onError");
           this.render();
         },
       });

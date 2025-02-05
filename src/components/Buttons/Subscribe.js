@@ -1,6 +1,11 @@
 // src/components/Buttons/Subscribe.js
 
-import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
+import {
+  writeContract,
+  waitForTransactionReceipt,
+  simulateContract,
+} from "@wagmi/core";
+import { wagmiConfig } from "../../config/appKit";
 import {
   getReadableErrorMessage,
   calculateSubscriptionRate,
@@ -35,25 +40,18 @@ function createSubscribeButton({
   onSuccess = () => {},
   onError = () => {},
 }) {
-  // Local state variables
+  // Internal state variables
   let isProcessing = false;
   let isPending = false;
   let isConfirmed = false;
 
-  // Create the form element
-  const form = document.createElement("form");
-  form.style.width = "100%";
-
-  // Create the button element
   const button = document.createElement("button");
-  button.type = "submit";
   button.className = "subscribe-button";
 
-  // Function to render the button content based on the state
   function renderButtonContent() {
     button.innerHTML = "";
+
     if (isProcessing || isPending) {
-      // Show a spinner and processing text
       const spinnerContainer = document.createElement("div");
       spinnerContainer.className = "spinner-container";
 
@@ -68,47 +66,64 @@ function createSubscribeButton({
       spinnerContainer.appendChild(text);
       button.appendChild(spinnerContainer);
     } else {
-      // Show normal subscribe text
       const text = document.createElement("p");
       text.className = "button-text";
       text.textContent = "Subscribe";
       button.appendChild(text);
     }
+
+    if (isConfirmed || !canSubscribe) {
+      button.disabled = true;
+      button.classList.add("disabled");
+    } else {
+      button.classList.remove("hidden");
+    }
+
+    if (needsDeposit) {
+      button.classList.add("hidden");
+    } else {
+      button.classList.remove("hidden");
+    }
   }
 
-  // Function to update the UI state (disable/enable button and render content)
   function updateUI() {
-    if (!canSubscribe || isProcessing || isPending) {
+    if (isConfirmed || !canSubscribe || isProcessing || isPending) {
       button.disabled = true;
       button.classList.add("disabled");
     } else {
       button.disabled = false;
       button.classList.remove("disabled");
     }
+
     renderButtonContent();
   }
 
-  // Initial UI update
   updateUI();
 
-  // Form submit handler
-  async function submit(e) {
+  async function handleClick(e) {
     e.preventDefault();
+
+    console.log("1");
+
     if (!canSubscribe) return;
+
+    console.log("2");
 
     isProcessing = true;
     updateUI();
 
+    console.log("3");
+
     try {
-      // Calculate the subscription rate using the provided helper.
-      // The subscriptionCost is expected to be a bigint already parsed (e.g. using parseUnits)
+      console.log("4");
       const subscriptionRate = calculateSubscriptionRate(
         subscriptionCost,
         subscriptionCycle
       );
 
-      // Call the subscribe function on the Papaya contract.
-      const tx = await writeContract({
+      console.log("5");
+
+      const { request } = await simulateContract(wagmiConfig, {
         abi,
         address: papayaAddress,
         functionName: "subscribe",
@@ -116,8 +131,17 @@ function createSubscribeButton({
         chainId,
       });
 
-      // Wait for the transaction receipt.
-      await waitForTransactionReceipt({ hash: tx.hash });
+      console.log("6", request);
+
+      const txHash = await writeContract(wagmiConfig, request);
+
+      console.log("7", txHash);
+
+      await waitForTransactionReceipt(wagmiConfig, {
+        hash: txHash,
+        chainId,
+      });
+
       isConfirmed = true;
       onSuccess();
     } catch (error) {
@@ -137,11 +161,8 @@ function createSubscribeButton({
     }
   }
 
-  // Attach the submit event handler to the form.
-  form.addEventListener("submit", submit);
-  form.appendChild(button);
-
-  return form;
+  button.addEventListener("click", handleClick);
+  return button;
 }
 
 export { createSubscribeButton };
