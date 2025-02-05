@@ -1,20 +1,15 @@
-// src/helpers/subscriptionHelpers.js
-
 // === Imports ===
-import axios from "axios";
 import { networks } from "../constants/networks";
-import { SubscriptionPayCycle } from "../constants/enums";
-import { Abi, Address, createPublicClient, http, parseUnits } from "viem";
-import * as chains from "viem/chains";
+import { createPublicClient, http, parseUnits } from "viem";
 import { Papaya } from "../contracts/evm/Papaya";
 import { USDT } from "../contracts/evm/USDT";
 import { USDC } from "../contracts/evm/USDC";
 import { PYUSD } from "../contracts/evm/PYUSD";
 import { getAssets } from "../utils/index.js"; // For asset management
 import { fetchGasCost, getChain } from "../utils/index.js"; // From your utils
+import { readContract } from "@wagmi/core";
+import { wagmiConfig } from "../config/appKit.js";
 
-// --- 1. Token Details Helper ---
-// This function replaces useTokenDetails (without React hooks)
 export function getTokenDetails(network, subscriptionDetails) {
   const defaultNetwork = networks.find((n) => n.chainId === 1);
   if (!defaultNetwork) {
@@ -35,7 +30,6 @@ export function getTokenDetails(network, subscriptionDetails) {
       (t) => t.name.toLowerCase() === subscriptionDetails.token.toLowerCase()
     ) || defaultToken;
 
-  // In this vanilla version, we assume valid details so unsupported flags are false.
   return {
     currentNetwork,
     tokenDetails,
@@ -44,20 +38,29 @@ export function getTokenDetails(network, subscriptionDetails) {
   };
 }
 
-// --- 2. Contract Data Reader ---
-// A stub function replacing useContractData.
-// Replace this with your actual contract reading logic as needed.
 export async function readContractData(
   contractAddress,
   abi,
   functionName,
-  args
+  args,
+  chainId
 ) {
-  // For now, return null; in production, call your blockchain read function.
-  return null;
+  try {
+    const data = await readContract(wagmiConfig, {
+      address: contractAddress,
+      abi,
+      functionName,
+      args,
+      chainId,
+    });
+
+    return data;
+  } catch (error) {
+    console.error("Error reading contract data:", error);
+    return null;
+  }
 }
 
-// --- 3. Token ABI Helper ---
 export function getTokenABI(tokenName) {
   switch (tokenName.toUpperCase()) {
     case "USDT":
@@ -71,9 +74,6 @@ export function getTokenABI(tokenName) {
   }
 }
 
-// --- 4. Network Fee Calculation ---
-// This function replaces useNetworkFee by returning a Promise that resolves
-// with the fee information.
 export async function getNetworkFee(open, account, chainId, functionDetails) {
   if (!open || !account || !account.address) {
     return { fee: "0.000000000000 ETH", usdValue: "($0.00)" };
@@ -132,9 +132,6 @@ export async function getNetworkFee(open, account, chainId, functionDetails) {
   }
 }
 
-// --- 6. Subscription Info ---
-// This function replaces useSubscriptionInfo. It calls getTokenDetails and then
-// (stubbed) contract reads to compute deposit, approval, and subscription conditions.
 export async function getSubscriptionInfo(
   network,
   account,
@@ -142,24 +139,29 @@ export async function getSubscriptionInfo(
 ) {
   const { tokenDetails } = getTokenDetails(network, subscriptionDetails);
 
-  // Read contract data (using stubs here; replace with actual reads as needed)
   const papayaBalance =
-    (await readContractData(tokenDetails.papayaAddress, Papaya, "balanceOf", [
-      account.address,
-    ])) || BigInt(0);
+    (await readContractData(
+      tokenDetails.papayaAddress,
+      Papaya,
+      "balanceOf",
+      [account.address],
+      network.chainId
+    )) || BigInt(0);
   const allowance =
     (await readContractData(
       tokenDetails.ercAddress,
       getTokenABI(tokenDetails.name),
       "allowance",
-      [account.address, tokenDetails.papayaAddress]
+      [account.address, tokenDetails.papayaAddress],
+      network.chainId
     )) || BigInt(0);
   const tokenBalance =
     (await readContractData(
       tokenDetails.ercAddress,
       getTokenABI(tokenDetails.name),
       "balanceOf",
-      [account.address]
+      [account.address],
+      network.chainId
     )) || BigInt(0);
 
   const costBigInt = parseUnits(subscriptionDetails.cost, 18);
@@ -171,7 +173,8 @@ export async function getSubscriptionInfo(
         parseUnits("0.01", 6)
       : parseUnits(subscriptionDetails.cost, 6);
   const needsApproval = allowance < depositAmount;
-  const hasSufficientBalance = tokenBalance >= depositAmount;
+  const hasSufficientBalance =
+    tokenBalance >= parseUnits(subscriptionDetails.cost, 6);
   const canSubscribe = !needsDeposit && papayaBalance >= costBigInt;
 
   return {
@@ -186,8 +189,6 @@ export async function getSubscriptionInfo(
   };
 }
 
-// --- 7. Subscription Modal Data ---
-// This function replaces useSubscriptionModal by combining asset icons and subscription info.
 export async function getSubscriptionModalData(
   network,
   account,
@@ -213,7 +214,6 @@ export async function getSubscriptionModalData(
     subscriptionDetails
   );
 
-  // Fallback values if needed
   const fallbackValues = {
     papayaBalance: null,
     allowance: null,

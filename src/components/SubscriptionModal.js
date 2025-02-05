@@ -1,23 +1,20 @@
-// src/components/SubscriptionModal.js
-
-// Import helper functions and assets
-import { getSubscriptionModalData } from "../helpers/subscriptionHelpers";
-import { getTokenABI } from "../helpers/subscriptionHelpers"; // or wherever it is defined
-import { calculateSubscriptionRate } from "../utils";
+// Import modules and helper functions
 import { parseUnits } from "viem";
+import {
+  getNetworkFee,
+  getSubscriptionModalData,
+  getTokenABI,
+} from "../helpers/subscriptionHelpers";
+import { calculateSubscriptionRate } from "../utils";
 import { Papaya } from "../contracts/evm/Papaya";
-// Import button components (assumed to be factory functions returning DOM nodes)
+// Import button components
 import { createApproveButton } from "./Buttons/Approve";
 import { createDepositButton } from "./Buttons/Deposit";
 import { createSubscribeButton } from "./Buttons/Subscribe";
-// Import assets (these might be paths or imported URLs)
+// Import assets
 import LogoIcon from "../assets/logo.svg";
 import SuccessIcon from "../assets/others/success.svg";
 import FailIcon from "../assets/others/fail.svg";
-
-// Assume getNetworkFee is a helper that returns a Promise resolving to an object { fee, usdValue }
-// and sets a loading flag; here we simulate it.
-import { getNetworkFee } from "../helpers/subscriptionHelpers";
 
 class SubscriptionModal extends HTMLElement {
   constructor() {
@@ -41,6 +38,7 @@ class SubscriptionModal extends HTMLElement {
     this._networkFee = null;
     this._isFeeLoading = false;
 
+    // Function call details
     this._functionDetails = null;
   }
 
@@ -138,6 +136,9 @@ class SubscriptionModal extends HTMLElement {
       this._account,
       this._subscriptionDetails
     );
+
+    console.log("modal data", modalData);
+
     const { needsDeposit, needsApproval, depositAmount, tokenDetails } =
       modalData;
     const functionName = needsApproval
@@ -789,7 +790,6 @@ class SubscriptionModal extends HTMLElement {
     // Set the shadow DOM content
     this.shadowRoot.innerHTML = template;
 
-    // Attach close button event listener
     const closeBtn = this.shadowRoot.getElementById("closeBtn");
     if (closeBtn) {
       closeBtn.addEventListener("click", (e) => {
@@ -802,9 +802,9 @@ class SubscriptionModal extends HTMLElement {
     // Render dynamic buttons into the "buttonsSection"
     const buttonsSection = this.shadowRoot.getElementById("buttonsSection");
     if (buttonsSection) {
-      // Clear previous buttons
       buttonsSection.innerHTML = "";
-      // Create Approve button if applicable
+
+      // Create Approve button
       const approveBtn = createApproveButton({
         chainId: this._network.chainId,
         needsApproval: needsApproval,
@@ -813,11 +813,9 @@ class SubscriptionModal extends HTMLElement {
         tokenContractAddress: tokenDetails.ercAddress,
         papayaAddress: tokenDetails.papayaAddress,
         onSuccess: () => {
-          // For demo purposes, if approval fails, set error state.
           this._showError = false;
           this._errorTitle = "";
           this._errorDescription = "";
-          // You might want to trigger a re-render or further actions.
           this.render();
         },
         onError: (title, description) => {

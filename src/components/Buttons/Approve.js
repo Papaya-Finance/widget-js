@@ -1,11 +1,14 @@
-// src/components/Buttons/Approve.js
-
-import { writeContract, waitForTransactionReceipt } from "@wagmi/core";
+import {
+  writeContract,
+  waitForTransactionReceipt,
+  simulateContract,
+} from "@wagmi/core";
+import { wagmiConfig } from "../../config/appKit";
 import { getReadableErrorMessage } from "../../utils";
 import GreenTickIcon from "../../assets/others/green-tick.svg";
 
 /**
- * Factory function to create an Approve form.
+ * Factory function to create an Approve button.
  *
  * @param {Object} options - Configuration options.
  * @param {number} options.chainId - The chain id.
@@ -17,7 +20,7 @@ import GreenTickIcon from "../../assets/others/green-tick.svg";
  * @param {function} [options.onSuccess] - Callback on successful transaction.
  * @param {function} [options.onError] - Callback on error, receives (title, description).
  *
- * @returns {HTMLElement} - The form element containing the Approve button.
+ * @returns {HTMLElement} - The button element.
  */
 function createApproveButton({
   chainId,
@@ -34,22 +37,12 @@ function createApproveButton({
   let isPending = false;
   let isConfirmed = false;
 
-  // Create the form element
-  const form = document.createElement("form");
-  form.style.width = "100%";
-
-  // Create the button element
   const button = document.createElement("button");
-  button.type = "submit";
   button.className = "approve-button";
 
-  // Function to render/update the button's inner content
   function renderButtonContent() {
-    // Clear previous content
     button.innerHTML = "";
-
     if (isProcessing || isPending) {
-      // Show spinner container
       const spinnerContainer = document.createElement("div");
       spinnerContainer.className = "spinner-container";
 
@@ -64,13 +57,11 @@ function createApproveButton({
       spinnerContainer.appendChild(text);
       button.appendChild(spinnerContainer);
     } else {
-      // Show standard button content
       const text = document.createElement("p");
       text.className = "button-text";
       text.textContent = "Approve";
       button.appendChild(text);
 
-      // If confirmed (or if approval is no longer needed), show the success icon.
       if (isConfirmed || !needsApproval) {
         const img = document.createElement("img");
         img.src = GreenTickIcon;
@@ -81,32 +72,33 @@ function createApproveButton({
     }
   }
 
-  // Initial render of the button content
   renderButtonContent();
 
-  // Function to update UI state (disabled state and re-render content)
   function updateUI() {
-    if (!needsApproval || isProcessing || isPending) {
+    if (isConfirmed) {
+      button.disabled = true;
+      button.classList.add("disabled");
+    } else if (!needsApproval || isProcessing || isPending) {
       button.disabled = true;
       button.classList.add("disabled");
     } else {
       button.disabled = false;
       button.classList.remove("disabled");
     }
+
     renderButtonContent();
   }
 
-  // Submit handler for the form
-  async function submit(e) {
+  async function handleClick(e) {
     e.preventDefault();
-    if (!needsApproval) return; // if no approval is needed, do nothing
+
+    if (!needsApproval) return;
 
     isProcessing = true;
     updateUI();
 
     try {
-      // Use the writeContract action from @wagmi/core
-      const tx = await writeContract({
+      const { request } = await simulateContract(wagmiConfig, {
         abi,
         address: tokenContractAddress,
         functionName: "approve",
@@ -114,11 +106,18 @@ function createApproveButton({
         chainId,
       });
 
-      // Wait for the transaction receipt (you may adjust parameters as needed)
-      await waitForTransactionReceipt({ hash: tx.hash });
+      const txHash = await writeContract(wagmiConfig, request);
+
+      await waitForTransactionReceipt(wagmiConfig, {
+        hash: txHash,
+        chainId,
+      });
+
       isConfirmed = true;
+      needsApproval = false;
       onSuccess();
     } catch (error) {
+      console.error("Error in approve transaction:", error);
       if (
         !(
           error &&
@@ -135,13 +134,8 @@ function createApproveButton({
     }
   }
 
-  // Attach the submit event handler to the form
-  form.addEventListener("submit", submit);
-
-  // Append the button to the form
-  form.appendChild(button);
-
-  return form;
+  button.addEventListener("click", handleClick);
+  return button;
 }
 
 export { createApproveButton };
