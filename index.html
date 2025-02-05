@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vanilla AppKit dApp Example</title>
+  <!-- Load your global CSS -->
+  <link rel="stylesheet" href="dist/App.css" />
+</head>
+
+<body>
+  <button id="openModalBtn">Open Subscription Modal</button>
+  <!-- In this example, we use the custom element that your bundle registers -->
+  <subscription-modal id="subModal"></subscription-modal>
+
+  <!-- (Optional) Pass configuration values via a global variable -->
+  <script>
+    // If needed, set global configuration variables before loading the bundle.
+    // For example, if you want to set a secret project ID:
+    // window.VITE_PROJECT_ID = "your-secret-project-id";
+  </script>
+
+  <!-- Load the UMD bundle -->
+  <script src="dist/umd-example-app.umd.js"></script>
+
+  <!-- Use the API exposed by your UMD bundle -->
+  <script>
+    // When the bundle loads, it should attach your public API to a global variable.
+    // In our Vite config we used the global name 'MyWagmiApp', so you can access it via:
+    console.log("Loaded UMD bundle:", window.UmdExample);
+
+    document.getElementById("openModalBtn").addEventListener("click", () => {
+      // For example, if your bundle exports a custom element (subscription-modal) and/or functions,
+      // you can now use them.
+      // Here, we configure the subscription modal:
+      const modal = document.getElementById("subModal");
+      // Set properties on your custom element:
+      modal.subscriptionDetails = {
+        cost: "0.99",
+        token: "usdt",
+        payCycle: "/monthly",
+        toAddress: "0x9CAF1B9144A5eC3aE180539F4dcf404B2D91974b"
+      };
+      
+      modal.onClose = () => {
+        console.log("Subscription modal closed");
+      };
+      // Open the modal by setting the "open" attribute
+      modal.setAttribute("open", "true");
+
+      // You can also access other exports from your bundle, for example:
+      // const { createApproveButton } = window.MyWagmiApp;
+      // (Then use that function to create buttons if needed.)
+    });
+  </script>
+</body>
+
+</html>
