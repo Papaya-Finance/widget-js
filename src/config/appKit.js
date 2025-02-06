@@ -54,7 +54,7 @@ export const networks = availableNetworks;
 const themeMode = window.THEME_MODE || "light";
 
 export const wagmiAdapter = new WagmiAdapter({
-  projectId,
+  projectId: reownProjectId,
   networks,
 });
 
