@@ -111,6 +111,8 @@ class SubscriptionModal extends HTMLElement {
     )
       return;
 
+    if (this._isSubscriptionSuccessful) return;
+
     this._feeRequestId++;
     const currentRequestId = this._feeRequestId;
     this._isFeeLoading = true;
@@ -732,8 +734,8 @@ class SubscriptionModal extends HTMLElement {
                   Now you can manage your subscription from a convenient
                   <b><u>
                     <a target="_blank" href="${
-                      account && account.address
-                        ? `https://app.papaya.finance/wallet/${account.address}`
+                      this._account && this._account.address
+                        ? `https://app.papaya.finance/wallet/${this._account.address}`
                         : "https://app.papaya.finance/"
                     }">
                       dashboard!
@@ -840,6 +842,8 @@ class SubscriptionModal extends HTMLElement {
           papayaAddress: tokenDetails.papayaAddress,
           onSuccess: () => {
             this._isSubscriptionSuccessful = true;
+            // Invalidate any pending fee fetch:
+            this._feeRequestId++;
             this._showError = false;
             this._errorTitle = "";
             this._errorDescription = "";
