@@ -4,22 +4,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vanilla AppKit dApp Example</title>
-  <!-- Load your global CSS -->
-  <link rel="stylesheet" href="dist/App.css" />
+  <title>Vanilla JS Demo</title>
 </head>
 
 <body>
   <button id="openModalBtn">Open Subscription Modal</button>
-  <!-- In this example, we use the custom element that your bundle registers -->
   <subscription-modal id="subModal"></subscription-modal>
 
   <script>
-    // window.VITE_PROJECT_ID = "your-secret-project-id";
+    window.REOWN_PROJECT_ID = "your-secret-project-id";
+    window.PAPAYA_ROJECT_ID = "your-papaya-project-id";
+    window.NETWORKS_LIST = JSON.stringify(["mainnet", "bsc", "polygon", "avalanche", "arbitrum"]);
   </script>
-  <script src="dist/umd-example-app.umd.js"></script>
+  <script src="dist/umd-papaya-widget.umd.js"></script>
   <script>
-    console.log("Loaded UMD bundle:", window.UmdExample);
+    console.log("Loaded Papaya Widget SDK:", window.PapayaWidget);
 
     document.getElementById("openModalBtn").addEventListener("click", () => {
       const modal = document.getElementById("subModal");
@@ -27,7 +26,7 @@
         cost: "0.99",
         token: "usdt",
         payCycle: "/monthly",
-        toAddress: "0x9CAF1B9144A5eC3aE180539F4dcf404B2D91974b"
+        toAddress: "0x22E0adC1b4e680bB4483aE32BA3f45D2F9BAD67C"
       };
       modal.setAttribute("open", "true");
     });

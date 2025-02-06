@@ -13,6 +13,7 @@ import GreenTickIcon from "../../assets/others/green-tick.svg";
  * @param {Object} options - Configuration options.
  * @param {number} options.chainId - The chain id.
  * @param {boolean} options.needsApproval - Whether approval is needed.
+ * @param {boolean} options.needsApproval - Whether deposit is needed.
  * @param {bigint} options.approvalAmount - The amount to approve.
  * @param {Object} options.abi - The ABI of the token contract.
  * @param {string} options.tokenContractAddress - The token contract address.
@@ -25,6 +26,7 @@ import GreenTickIcon from "../../assets/others/green-tick.svg";
 function createApproveButton({
   chainId,
   needsApproval,
+  needsDeposit,
   approvalAmount,
   abi,
   tokenContractAddress,
@@ -64,7 +66,7 @@ function createApproveButton({
       button.appendChild(text);
     }
 
-    if (isConfirmed || !needsApproval) {
+    if (isConfirmed || !needsApproval || !needsDeposit) {
       const img = document.createElement("img");
       img.src = GreenTickIcon;
       img.alt = "Approve Successful";
@@ -74,7 +76,13 @@ function createApproveButton({
   }
 
   function updateUI() {
-    if (isConfirmed || !needsApproval || isProcessing || isPending) {
+    if (
+      isConfirmed ||
+      !needsApproval ||
+      !needsDeposit ||
+      isProcessing ||
+      isPending
+    ) {
       button.disabled = true;
       button.classList.add("disabled");
     } else {
@@ -91,6 +99,7 @@ function createApproveButton({
     e.preventDefault();
 
     if (!needsApproval) return;
+    if (!needsDeposit) return;
 
     isProcessing = true;
     updateUI();

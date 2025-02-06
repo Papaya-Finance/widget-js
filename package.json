@@ -1,7 +1,12 @@
 {
-  "name": "vanilljs-wagmi",
-  "private": true,
-  "version": "0.0.1",
+  "name": "@papaya_fi/widget-js",
+  "type": "module",
+  "version": "1.0.9",
+  "description": "A browser-based JS Widget SDK for subscription payments",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/papaya-finance/widget-js.git"
+  },
   "scripts": {
     "dev": "vite --port 3011",
     "build": "vite build"
@@ -16,5 +21,8 @@
   },
   "devDependencies": {
     "vite": "5.2.11"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

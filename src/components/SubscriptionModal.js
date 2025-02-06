@@ -596,7 +596,7 @@ class SubscriptionModal extends HTMLElement {
             font-family: "Public Sans", sans-serif;
             font-size: 12px;
             color: #637381;
-            margin-right: 8px;
+            margin-right: 4px;
         }
 
         .footer-logo {
@@ -750,7 +750,7 @@ class SubscriptionModal extends HTMLElement {
           </div>
           <div class="modal-footer">
             <p class="footer-text">Powered by</p>
-            <a href="https://app.papaya.finance" target="_blank" rel="noopener noreferrer">
+            <a href="https://app.papaya.finance" target="_blank" rel="noopener noreferrer" style="height: 100%; display: flex; justify-content: center; align-items: center;">
               <img src="${LogoIcon}" alt="Papaya Logo" class="footer-logo" />
             </a>
           </div>
@@ -787,6 +787,7 @@ class SubscriptionModal extends HTMLElement {
           chainId: this._network.chainId,
           account: this._account,
           needsApproval: this._modalData.needsApproval,
+          needsDeposit: this._modalData.needsDeposit,
           approvalAmount: parseUnits(this._subscriptionDetails.cost, 6),
           abi: getTokenABI(tokenDetails.name),
           tokenContractAddress: tokenDetails.ercAddress,
