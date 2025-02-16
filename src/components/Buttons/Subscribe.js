@@ -1,32 +1,32 @@
-// src/components/Buttons/Subscribe.js
-
 import {
   writeContract,
   waitForTransactionReceipt,
   simulateContract,
 } from "@wagmi/core";
-import { wagmiConfig } from "../../config/appKit";
+import { papayaProjectId, wagmiConfig } from "../../config/appKit";
 import {
   getReadableErrorMessage,
   calculateSubscriptionRate,
 } from "../../utils";
+import { encodeFunctionData } from "viem";
 
 /**
- * Factory function to create a Subscribe button form.
+ * Factory function to create a combined Deposit & Subscribe button form.
  *
- * @param {Object} options - Configuration options.
- * @param {number} options.chainId - The chain id.
- * @param {boolean} options.needsDeposit - Whether deposit is needed (affects UI).
- * @param {boolean} options.canSubscribe - Whether the subscription can proceed.
- * @param {Object} options.abi - The ABI of the Papaya contract.
- * @param {string} options.toAddress - The destination address for the subscription.
- * @param {bigint} options.subscriptionCost - The subscription cost (in units parsed via parseUnits).
- * @param {string|number} options.subscriptionCycle - The subscription pay cycle.
- * @param {string} options.papayaAddress - The Papaya contract address.
- * @param {function} [options.onSuccess] - Callback invoked upon successful subscription.
- * @param {function} [options.onError] - Callback invoked upon error; receives (title, description).
+ * Options:
+ * - chainId: number (chain id)
+ * - needsDeposit: boolean (if a deposit is required)
+ * - canSubscribe: boolean (if the subscription can proceed)
+ * - abi: the ABI of the Papaya contract
+ * - toAddress: subscription destination address
+ * - subscriptionCost: bigint (the cost in 18-decimal units)
+ * - subscriptionCycle: string or number (pay cycle)
+ * - papayaAddress: string (Papaya contract address)
+ * - depositAmount: bigint (the deposit shortfall in token units; 6 decimals)
+ * - onSuccess: callback when transaction confirms
+ * - onError: callback on error, receives (title, description)
  *
- * @returns {HTMLElement} - The form element containing the Subscribe button.
+ * @returns {HTMLElement} The button element.
  */
 function createSubscribeButton({
   chainId,
@@ -37,6 +37,7 @@ function createSubscribeButton({
   subscriptionCost,
   subscriptionCycle,
   papayaAddress,
+  depositAmount,
   onSuccess = () => {},
   onError = () => {},
 }) {
@@ -50,7 +51,6 @@ function createSubscribeButton({
 
   function renderButtonContent() {
     button.innerHTML = "";
-
     if (isProcessing || isPending) {
       const spinnerContainer = document.createElement("div");
       spinnerContainer.className = "spinner-container";
@@ -68,33 +68,21 @@ function createSubscribeButton({
     } else {
       const text = document.createElement("p");
       text.className = "button-text";
-      text.textContent = "Subscribe";
+      text.textContent = needsDeposit ? "Deposit & Subscribe" : "Subscribe";
       button.appendChild(text);
     }
 
+    // Disable if transaction is confirmed or subscription cannot proceed
     if (isConfirmed || !canSubscribe) {
-      button.disabled = true;
-      button.classList.add("disabled");
-    } else {
-      button.classList.remove("hidden");
-    }
-
-    if (needsDeposit) {
-      button.classList.add("hidden");
-    } else {
-      button.classList.remove("hidden");
-    }
-  }
-
-  function updateUI() {
-    if (isConfirmed || !canSubscribe || isProcessing || isPending) {
       button.disabled = true;
       button.classList.add("disabled");
     } else {
       button.disabled = false;
       button.classList.remove("disabled");
     }
+  }
 
+  function updateUI() {
     renderButtonContent();
   }
 
@@ -102,32 +90,64 @@ function createSubscribeButton({
 
   async function handleClick(e) {
     e.preventDefault();
-
     if (!canSubscribe) return;
 
     isProcessing = true;
     updateUI();
 
     try {
+      // Calculate subscription rate using your helper (cost in 18 decimals and pay cycle)
       const subscriptionRate = calculateSubscriptionRate(
         subscriptionCost,
         subscriptionCycle
       );
 
-      const { request } = await simulateContract(wagmiConfig, {
-        abi,
-        address: papayaAddress,
-        functionName: "subscribe",
-        args: [toAddress, subscriptionRate, 0],
-        chainId,
-      });
+      if (needsDeposit) {
+        const depositCallData = encodeFunctionData({
+          abi,
+          functionName: "deposit",
+          args: [depositAmount, false],
+        });
 
-      const txHash = await writeContract(wagmiConfig, request);
+        const subscribeCallData = encodeFunctionData({
+          abi,
+          functionName: "subscribe",
+          args: [
+            toAddress,
+            subscriptionRate,
+            papayaProjectId == undefined ? BigInt(0) : BigInt(papayaProjectId),
+          ],
+        });
 
-      await waitForTransactionReceipt(wagmiConfig, {
-        hash: txHash,
-        chainId,
-      });
+        const combinedCalls = [depositCallData, subscribeCallData];
+
+        const txHash = await writeContract(wagmiConfig, {
+          abi,
+          address: papayaAddress,
+          functionName: "multicall",
+          args: [combinedCalls],
+          chainId,
+        });
+
+        await waitForTransactionReceipt(wagmiConfig, { hash: txHash, chainId });
+      } else {
+        // Only subscribe branch
+        const { request } = await simulateContract(wagmiConfig, {
+          abi,
+          address: papayaAddress,
+          functionName: "subscribe",
+          args: [
+            toAddress,
+            subscriptionRate,
+            papayaProjectId == undefined ? BigInt(0) : BigInt(papayaProjectId),
+          ],
+          chainId,
+        });
+
+        const txHash = await writeContract(wagmiConfig, request);
+
+        await waitForTransactionReceipt(wagmiConfig, { hash: txHash, chainId });
+      }
 
       isConfirmed = true;
       onSuccess();

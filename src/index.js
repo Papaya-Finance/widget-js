@@ -1,6 +1,5 @@
 export { SubscriptionModal } from "./components/SubscriptionModal";
 export { createApproveButton } from "./components/Buttons/Approve";
-export { createDepositButton } from "./components/Buttons/Deposit";
 export { createSubscribeButton } from "./components/Buttons/Subscribe";
 
 import { appKit, wagmiAdapter } from "./config/appKit";

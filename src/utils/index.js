@@ -2,16 +2,11 @@
 import { networks } from "../constants/networks";
 import axios from "axios";
 // Chain Icons
-import EthereumIcon from "../assets/chains/ethereum.svg";
 import BnbIcon from "../assets/chains/bnb.svg";
 import PolygonIcon from "../assets/chains/polygon.svg";
-import AvalancheIcon from "../assets/chains/avalanche.svg";
-import ArbitrumIcon from "../assets/chains/arbitrum.svg";
-import BaseIcon from "../assets/chains/base.svg";
 // Token Icons
 import UsdtIcon from "../assets/tokens/usdt.svg";
 import UsdcIcon from "../assets/tokens/usdc.svg";
-import PyusdIcon from "../assets/tokens/pyusd.svg";
 import { SubscriptionPayCycle } from "../constants/enums";
 import { Chain, parseUnits } from "viem";
 import * as chains from "viem/chains";
@@ -20,17 +15,12 @@ import * as chains from "viem/chains";
 const chainIcons = {
   polygon: PolygonIcon,
   bnb: BnbIcon,
-  avalanche: AvalancheIcon,
-  base: BaseIcon,
-  arbitrum: ArbitrumIcon,
-  ethereum: EthereumIcon,
 };
 
 // === Token Icons Map ===
 const tokenIcons = {
   usdt: UsdtIcon,
   usdc: UsdcIcon,
-  pyusd: PyusdIcon,
 };
 
 // === Formatting Utilities ===
@@ -75,7 +65,7 @@ export const formatNetworkFee = (fee, nativeToken) => {
 export const getAssets = (key, type) => {
   const lowerKey = key.toLowerCase();
   if (type === "chain") {
-    return chainIcons[lowerKey] || "ethereum";
+    return chainIcons[lowerKey] || "polygon";
   } else if (type === "token") {
     return tokenIcons[lowerKey] || "usdt";
   }
@@ -114,10 +104,10 @@ export const fetchTokenPrice = async (tokenId) => {
 export const fetchNetworkFee = async (chainId) => {
   const network = networks.find((n) => n.chainId === chainId);
   if (!network) {
-    console.warn(`Unsupported chain ID: ${chainId}, defaulting to Ethereum`);
+    console.warn(`Unsupported chain ID: ${chainId}, defaulting to Polygon`);
     return {
       gasPrice: "0",
-      nativeToken: "ETH",
+      nativeToken: "POL",
     };
   }
 
@@ -185,13 +175,10 @@ export const fetchGasCost = async (
     ) {
       const nativeTokenIdMap = {
         137: "matic-network",
-        43114: "avalanche-2",
-        8453: "ethereum",
-        42161: "ethereum",
-        1: "ethereum",
+        56: "binancecoin",
       };
 
-      const tokenId = nativeTokenIdMap[chainId] || "ethereum";
+      const tokenId = nativeTokenIdMap[chainId] || "matic-network";
       if (!tokenId) {
         throw new Error(`Token ID not found for chain ID: ${chainId}`);
       }
@@ -213,7 +200,7 @@ export const fetchGasCost = async (
     return { fee, usdValue };
   } catch (error) {
     console.error("Error calculating gas cost:", error);
-    return { fee: "0.000000000000 ETH", usdValue: "($0.00)" };
+    return { fee: "0.000000000000 POL", usdValue: "($0.00)" };
   }
 };
 
@@ -262,7 +249,7 @@ export const calculateSubscriptionRate = (subscriptionCost, payCycle) => {
 export const getChain = (chainId) => {
   const chain = Object.values(chains).find((c) => c.id === chainId);
   if (!chain) {
-    console.warn(`Chain with id ${chainId} not found, defaulting to Ethereum`);
+    console.warn(`Chain with id ${chainId} not found, defaulting to Polygon`);
     return chains.mainnet;
   }
   return chain;

@@ -1,7 +1,7 @@
 {
   "name": "@papaya_fi/widget-js",
   "type": "module",
-  "version": "1.0.11",
+  "version": "1.0.11-rc14",
   "description": "A browser-based JS Widget SDK for subscription payments",
   "repository": {
     "type": "git",

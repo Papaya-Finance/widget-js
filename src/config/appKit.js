@@ -16,7 +16,7 @@ if (!reownProjectId) {
   throw new Error("REOWN_PROJECT_ID is not set");
 }
 
-const papayaProjectId =
+export const papayaProjectId =
   (typeof window !== "undefined" && window.PAPAYA_PROJECT_ID) ||
   import.meta.env.PAPAYA_PROJECT_ID;
 

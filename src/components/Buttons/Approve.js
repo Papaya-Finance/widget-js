@@ -40,7 +40,7 @@ function createApproveButton({
   let isConfirmed = false;
 
   const button = document.createElement("button");
-  button.className = "approve-button";
+  button.className = "subscribe-button";
 
   function renderButtonContent() {
     button.innerHTML = "";
