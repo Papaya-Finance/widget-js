@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vanilla JS Demo</title>
+</head>
+
+<body>
+  <button id="openModalBtn">Open Subscription Modal</button>
+  <subscription-modal id="subModal"></subscription-modal>
+
+  <script>
+    window.REOWN_PROJECT_ID = "your-secret-project-id";
+    window.PAPAYA_PROJECT_ID = "your-papaya-project-id";
+    window.NETWORKS_LIST = JSON.stringify(["mainnet", "bsc", "polygon", "avalanche", "arbitrum"]);
+  </script>
+  <script src="dist/umd-papaya-widget.umd.js"></script>
+  <script>
+    console.log("Loaded Papaya Widget SDK:", window.PapayaWidget);
+
+    document.getElementById("openModalBtn").addEventListener("click", () => {
+      const modal = document.getElementById("subModal");
+      modal.subscriptionDetails = {
+        cost: "0.99",
+        token: "usdt",
+        payCycle: "/monthly",
+        toAddress: "0x22E0adC1b4e680bB4483aE32BA3f45D2F9BAD67C"
+      };
+      modal.setAttribute("open", "true");
+    });
+  </script>
+</body>
+
+</html>
