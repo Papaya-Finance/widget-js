@@ -1,0 +1,39 @@
+name: Publish to npm
+
+on:
+  # Manual trigger from GitHub Actions tab
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.0.2)'
+        required: true
+        type: string
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Update version
+        run: |
+          # Update package.json with the version provided in the workflow input
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+
+      - name: Build
+        run: npm run build
+
+      - name: Publish
+        run: npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.PUBLISH_TOKEN }} 
